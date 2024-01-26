@@ -50,7 +50,7 @@ mc=MultiChainClient(rpchost, rpcport, rpcuser, rpcpassword)
 @api_view(['GET'])
 def getLatestBlock(request):
     print(mc)
-    res =  mc.liststreamitems('stream1')
+    res =  mc.liststreamitems('stream1') 
     print(res)
     if mc.success():
         return Response(res[-1])
@@ -61,8 +61,7 @@ def getLatestBlock(request):
 
 @api_view(['GET'])
 def getStats(request):
-    res =  mc.liststreamitems('stream1')
-    data = res[-1]
+    data = getItemList()
     items = len(data)
     total_value = sum([item["quantity"]*item["cost"] for item in data])
     out_of_stock = sum(1 for item in data if item["quantity"] == 0)
@@ -76,9 +75,42 @@ def getStats(request):
         "category_count":category_count
     }
     return Response(response_data)
-    # if mc.success():
-    #     return Response(response_data)
-    # else: 
-    #     print('Error code: '+str(mc.errorcode())+'\n')
-    #     print('Error message: '+mc.errormessage()+'\n')
-    #     return Response(str(mc.errorcode())+' : '+mc.errormessage())
+    if mc.success():
+        return Response(response_data)
+    else: 
+        print('Error code: '+str(mc.errorcode())+'\n')
+        print('Error message: '+mc.errormessage()+'\n')
+        return Response(str(mc.errorcode())+' : '+mc.errormessage())
+
+@api_view(['GET'])
+def getItems(request):
+    data = getItemList()
+    return Response(data)
+
+@api_view(['GET'])
+def getLowStock(request):
+    data = getItemList()
+    low_stock = [item for item in data if item["quantity"] <= 60 ]
+    return Response({"items" : low_stock})
+
+@api_view(['GET'])
+def getOutOfStock(request):
+    data = getItemList()
+    out_of_stock = [item for item in data if item["quantity"] == 0 ]
+    return Response({"items" : out_of_stock})
+
+def getItemList():
+    keys = mc.liststreamkeys('products')
+    products = []
+    for key in keys:
+        data =  mc.liststreamkeyitems('products' , key["key"])[-1]["data"]["json"]
+        eachData = {
+            "item_name": data["item_name"],
+            "product_id": key["key"],
+            "quantity": data["quantity"],
+            "unit": data["unit"],
+            "group": data["group"],
+            "cost": data["cost"]
+        }
+        products.append(eachData)
+    return products
