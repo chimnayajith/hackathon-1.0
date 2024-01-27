@@ -2,50 +2,69 @@ from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from .multichain import MultiChainClient
+from rest_framework import serializers
+from .serializers import ItemSerializer, StockManagementSerializer
 
 rpchost='127.0.0.1'
 rpcport=6740
 rpcuser='multichainrpc'
 rpcpassword='HLf7ccpyruvHzZbxDw4SSgubQYSC6SbLkNjZLZeFYCRz'
 
-
 mc=MultiChainClient(rpchost, rpcport, rpcuser, rpcpassword)
 
-# data = [
-#     {
-#         "item_name": "Widget A",
-#         "product_id": "P001",
-#         "quantity": 100,
-#         "unit": ["piece"],
-#         "group": "Electronics",
-#         "cost": 25.99
-#     },
-#     {
-#         "item_name": "Gizmo B",
-#         "product_id": "P002",
-#         "quantity": 50,
-#         "unit": ["piece"],
-#         "group": "Gadgets",
-#         "cost": 12.49
-#     },
-#     {
-#         "item_name": "Tool C",
-#         "product_id": "P003",
-#         "quantity": 30,
-#         "unit": ["piece"],
-#         "group": "Tools",
-#         "cost": 8.75
-#     },
-#     {
-#         "item_name": "Raw Material X",
-#         "product_id": "P004",
-#         "quantity": 6,
-#         "unit": ["kg"],
-#         "group": "Materials",
-#         "cost": 2.5
-#     }
-# ]
-
+@api_view(['GET'])
+def getRoutes(request):
+    routes = [
+        {
+            'Endpoint': 'api/get-stats/',
+            'method': 'GET',
+            'body': None,
+            'description': 'Returns the stats about the inventory'
+        },
+        {
+            'Endpoint': 'api/items/',
+            'method': 'GET',
+            'body': None,
+            'description': 'Returns all the items in the inventory'
+        },
+        {
+            'Endpoint': 'api/get-low-stock',
+            'method': 'GET',
+            'body': None,
+            'description': 'Returns all items which are below the low stock threshold'
+        },
+        {
+            'Endpoint': 'api/get-out-of-stock',
+            'method': 'GET',
+            'body': None,
+            'description': 'Returns all items which are out of stock.'
+        },
+        {
+            'Endpoint': 'api/get-categories',
+            'method': 'GET',
+            'body': None,
+            'description': 'Returns all the categories of the inventory.'
+        },
+        {
+            'Endpoint': 'api/add-item/',
+            'method': 'POST',
+            'body': {},
+            'description': 'Adds a new item to the inventory'
+        },
+        {
+            'Endpoint': 'api/add-stock/',
+            'method': 'POST',
+            'body': {},
+            'description': 'Returns all notes'
+        },
+        {
+            'Endpoint': 'api/deduct-stock',
+            'method': 'POST',
+            'body': {},
+            'description': 'Returns all notes'
+        },
+    ]
+    return Response(routes)
 
 @api_view(['GET'])
 def getLatestBlock(request):
@@ -65,7 +84,7 @@ def getStats(request):
     items = len(data)
     total_value = sum([item["quantity"]*item["cost"] for item in data])
     out_of_stock = sum(1 for item in data if item["quantity"] == 0)
-    low_stock = sum(1 for item in data if item["quantity"] <= 10)
+    low_stock = sum(1 for item in data if item["quantity"] <= 60)
     category_count = len(set(item["group"] for item in data)) 
     response_data = {
         "item_count" : items,
@@ -98,6 +117,50 @@ def getOutOfStock(request):
     data = getItemList()
     out_of_stock = [item for item in data if item["quantity"] == 0 ]
     return Response({"items" : out_of_stock})
+
+@api_view(['GET'])
+def getCategories(request):
+    data = getItemList()
+    print(list(set(item["group"] for item in data)))
+    return Response(list(set(item["group"] for item in data)))
+
+@api_view(["POST"])
+def addNewItem(request):
+    serializer = ItemSerializer(data=request.data)
+    if(serializer.is_valid()):
+        data = serializer.validated_data
+        mc.publish('products', data["product_id"], {"json" : {"item_name" : data["item_name"],"quantity" : data["quantity"],"unit" : data["unit"],"group" : data["group"],"cost" : data["cost"]}})
+        return Response(serializer.validated_data, status=201)
+    return Response(serializer.errors , status = 400)
+
+
+@api_view(["POST"])
+def addStock(request):
+    serializer = StockManagementSerializer(data = request.data)
+    if(serializer.is_valid()):
+        data = serializer.validated_data
+        itemData = getItem(data["product_id"])
+        mc.publish('products', data["product_id"], {"json" : {"item_name" : itemData["item_name"],"quantity" : itemData["quantity"]+data["quantity"],"unit" : itemData["unit"],"group" : itemData["group"],"cost" : itemData["cost"]}})
+        return Response(serializer.validated_data , status=200)
+    return Response(serializer.errors , status = 400)
+    
+
+@api_view(["POST"])
+def deductStock(request):
+    serializer = StockManagementSerializer(data = request.data)
+    if(serializer.is_valid()):
+        data = serializer.validated_data
+        itemData = getItem(data["product_id"])
+        if(data["quantity"] > itemData["quantity"] ):
+            return Response({"message": "Insufficient stock for deduction"} , status=400)
+        mc.publish('products', data["product_id"], {"json" : {"item_name" : itemData["item_name"],"quantity" : itemData["quantity"]-data["quantity"],"unit" : itemData["unit"],"group" : itemData["group"],"cost" : itemData["cost"]}})
+        return Response(serializer.validated_data , status=200)
+    return Response(serializer.errors , status = 400)
+
+
+def getItem(id):
+    data = mc.liststreamkeyitems('products' , id )[-1]['data']['json']
+    return data
 
 def getItemList():
     keys = mc.liststreamkeys('products')
