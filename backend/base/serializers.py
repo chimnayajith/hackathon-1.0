@@ -10,4 +10,4 @@ class ItemSerializer(serializers.Serializer):
 
 class StockManagementSerializer(serializers.Serializer):
     product_id = serializers.CharField(max_length=100)
-    quantity = serializers.IntegerField()
+    quantity = serializers.IntegerField()   

@@ -121,7 +121,6 @@ def getOutOfStock(request):
 @api_view(['GET'])
 def getCategories(request):
     data = getItemList()
-    print(list(set(item["group"] for item in data)))
     return Response(list(set(item["group"] for item in data)))
 
 @api_view(["POST"])
