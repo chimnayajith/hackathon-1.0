@@ -66,8 +66,14 @@ def getRoutes(request):
         {
             'Endpoint': 'api/get-users',
             'method': 'GET',
-            'body': {},
+            'body': None,
             'description': 'Returns all nodes registered in the blockchain'
+        },
+         {
+            'Endpoint': 'api/is-admin',
+            'method': 'GET',
+            'body': None,
+            'description': 'Returns whether the ccurrent node has admin permissions or not.'
         },
     ]
     return Response(routes)
