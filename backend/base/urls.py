@@ -13,4 +13,8 @@ urlpatterns = [
     path('add-item/' , views.addNewItem),
     path('add-stock/' , views.addStock),
     path('deduct-stock/' , views.deductStock),
+
+    path('get-users/' , views.getUsers),
+    path('is-admin/' , views.isAdmin),
+
 ]

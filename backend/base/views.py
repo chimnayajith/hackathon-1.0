@@ -63,6 +63,12 @@ def getRoutes(request):
             'body': {},
             'description': 'Returns all notes'
         },
+        {
+            'Endpoint': 'api/get-users',
+            'method': 'GET',
+            'body': {},
+            'description': 'Returns all nodes registered in the blockchain'
+        },
     ]
     return Response(routes)
 
@@ -157,6 +163,46 @@ def deductStock(request):
     return Response(serializer.errors , status = 400)
 
 
+@api_view(["GET"])
+def getUsers(request):
+    nodes = mc.listpermissions('receive')
+    users = []
+    for i , item in enumerate(nodes , start = 1):
+        username = f"User {i}"
+        node_address = item["address"]
+        isAdmin = mc.verifypermission(item["address"], 'admin')
+        user = {
+            "username" : username , 
+            "node_address" : node_address,
+            "isAdmin" : isAdmin
+        }
+        users.append(user)
+    users_sorted = sorted(users, key=lambda x: x["isAdmin"], reverse=True)
+    return Response(users_sorted)
+
+
+@api_view(["GET"])
+def isAdmin(request):
+    data = mc.getaddresses()[0]
+    isAdmin = mc.verifypermission(data, 'admin')
+    return Response(isAdmin)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# utils
 def getItem(id):
     data = mc.liststreamkeyitems('products' , id )[-1]['data']['json']
     return data
